@@ -1,0 +1,7 @@
+db/
+Dockerfile
+docker-compose.yml
+.gitignore
+.env
+.vscode/
+debug
