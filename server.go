@@ -50,7 +50,7 @@ func (s *Server) Get(path string, handlerFunc HandlerFunc) {
 	pc := reflect.ValueOf(handlerFunc).Pointer()
 	log.Printf("Registering route: %v\n", path)
 	route := s.router.
-		Host("{host}").
+		Host("{host:.+}").
 		Path(path).
 		Name(runtime.FuncForPC(pc).Name()).
 		Handler(s.handler(handlerFunc)).
@@ -81,8 +81,28 @@ func (c *Context) URL(handler HandlerFunc) func(...string) (*url.URL, error) {
 	if route, ok := c.server.routeByPtr[reflect.ValueOf(handler).Pointer()]; ok {
 		return func(pairs ...string) (*url.URL, error) {
 			params := []string{"host", c.Request.Host}
+
 			params = append(params, pairs...)
-			return route.URL(params...)
+			url, err := route.URL(params...)
+			if err != nil {
+				return nil, err
+			}
+			prefix := c.Request.Header.Get("X-Forwarded-Prefix")
+			if prefix != "" {
+				url.Path = prefix + url.Path
+			}
+			proto := c.Request.Header.Get("X-Forwarded-Proto")
+			if proto != "" {
+				url.Scheme = proto
+			}
+			port := c.Request.Header.Get("X-Forwarded-Port")
+			if port != "" && url.Port() != port &&
+				((url.Scheme == "https" && port != "443") ||
+					(url.Scheme == "http" && port != "80")) {
+				url.Host = url.Hostname() + ":" + port
+			}
+
+			return url, nil
 		}
 	}
 	return func(...string) (*url.URL, error) {

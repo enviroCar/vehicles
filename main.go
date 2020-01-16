@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 
 	"github.com/go-pg/pg/v9"
@@ -33,12 +32,6 @@ func main() {
 	server.Get("/manufacturers/{hsn}/vehicles/{tsn}", s.GetVehicle)
 	server.Get("/powerSources", s.GetPowerSources)
 	server.Get("/powerSources/{id}", s.GetPowerSource)
-
-	re, err := regexp.Compile("^(?P<v0>[^.]+)$")
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(re.MatchString("localhost"))
 
 	log.Fatal(server.Start(fmt.Sprintf(":%d", getPort())))
 }
