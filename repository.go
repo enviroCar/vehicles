@@ -56,21 +56,20 @@ func (r *Repository) GetVehicles(manufacturer *Manufacturer) ([]*Vehicle, error)
 // GetVehicle tries to get the specified vehicle.
 func (r *Repository) GetVehicle(manufacturer *Manufacturer, id string) (*Vehicle, error) {
 
-	var vehicles []*Vehicle
-	err := r.db.Model(&vehicles).
+	vehicle := new(Vehicle)
+	err := r.db.Model(vehicle).
 		Relation("Manufacturer").
 		Relation("PowerSource").
 		Where("vehicle.manufacturer_id = ? AND vehicle.id = ?", manufacturer.ID, id).
-		Limit(1).
-		Select()
+		First()
 	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
-	if len(vehicles) == 0 {
-		return nil, ErrNotFound
-	}
-	return vehicles[0], nil
 
+	return vehicle, nil
 }
 
 // GetPowerSources gets all available power sources.
