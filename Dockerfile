@@ -20,4 +20,7 @@ COPY --from=BUILDER /go/src/app/main .
 
 EXPOSE 8080
 
+HEALTHCHECK --interval=5s --timeout=20s --retries=3 \
+  CMD wget http://localhost:${PORT}/ -q -O - > /dev/null 2>&1
+
 CMD ["./main"]
