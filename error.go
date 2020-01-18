@@ -13,7 +13,7 @@ var (
 	ErrMethodNotAllowed = NewError(http.StatusMethodNotAllowed, errors.New("method not allowed"))
 )
 
-// NewErrBadRequest is a 400 bad request error
+// NewErrBadRequestF returns a 400 bad request error
 func NewErrBadRequestF(format string, a ...interface{}) Error {
 	return NewError(http.StatusBadRequest, fmt.Errorf(format, a...))
 }

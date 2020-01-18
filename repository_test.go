@@ -54,7 +54,7 @@ func TestGetVehicleNotFound(t *testing.T) {
 	}
 }
 
-func TestGetPowerSource(t *testing.T) {
+func TestGetPowerSourceParserError(t *testing.T) {
 
 	r := NewTestRepository(t)
 
