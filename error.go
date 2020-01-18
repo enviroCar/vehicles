@@ -14,7 +14,7 @@ var (
 )
 
 // NewErrBadRequest is a 400 bad request error
-func NewErrBadRequest(format string, a ...interface{}) Error {
+func NewErrBadRequestF(format string, a ...interface{}) Error {
 	return NewError(http.StatusBadRequest, fmt.Errorf(format, a...))
 }
 
