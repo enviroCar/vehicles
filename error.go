@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -11,6 +12,11 @@ var (
 	// ErrMethodNotAllowed is a 405 error.
 	ErrMethodNotAllowed = NewError(http.StatusMethodNotAllowed, errors.New("method not allowed"))
 )
+
+// NewErrBadRequest is a 400 bad request error
+func NewErrBadRequest(format string, a ...interface{}) Error {
+	return NewError(http.StatusBadRequest, fmt.Errorf(format, a...))
+}
 
 // Error is a HTTP error.
 type Error interface {
