@@ -83,7 +83,7 @@ func (r *Repository) GetPowerSources() ([]*PowerSource, error) {
 func (r *Repository) GetPowerSource(id string) (*PowerSource, error) {
 	nid, err := strconv.ParseInt(id, 10, 32)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, NewErrNotFoundF("id is bad '%v'", id)
 	}
 
 	var powerSources []*PowerSource

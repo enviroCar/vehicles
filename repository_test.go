@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/go-pg/pg/v9"
+	"net/http"
 	"testing"
 )
 
-func NewTesRepository(t *testing.T) *Repository{
+func NewTestRepository(t *testing.T) *Repository {
 	t.Log("create test repository")
 	repository := NewRepository(&pg.Options{
 		User:     getenv("DB_USER", "postgres"),
@@ -19,11 +20,11 @@ func NewTesRepository(t *testing.T) *Repository{
 
 func TestGetVehicle(t *testing.T) {
 
-	r := NewTesRepository(t)
+	r := NewTestRepository(t)
 
 	m := &Manufacturer{
-		ID:     "0005",
-		Name:   "BMW",
+		ID:   "0005",
+		Name: "BMW",
 	}
 
 	t.Log("get vehicle by id and manufacturer")
@@ -37,14 +38,13 @@ func TestGetVehicle(t *testing.T) {
 	}
 }
 
-
 func TestGetVehicleNotFound(t *testing.T) {
 
-	r := NewTesRepository(t)
+	r := NewTestRepository(t)
 
 	m := &Manufacturer{
-		ID:     "000x",
-		Name:   "BMW",
+		ID:   "000x",
+		Name: "BMW",
 	}
 
 	t.Log("get vehicle by id and manufacturer")
@@ -52,4 +52,26 @@ func TestGetVehicleNotFound(t *testing.T) {
 	if err != ErrNotFound {
 		t.Fatal(fmt.Sprintf("%v, %T", err, err))
 	}
+}
+
+func TestGetPowerSourceParserError(t *testing.T) {
+
+	r := NewTestRepository(t)
+
+	t.Log("get power source by id")
+	_, err := r.GetPowerSource("1x")
+	if err == nil {
+		t.Error("error is nil")
+	}
+
+	httpError, ok := err.(Error)
+	if !ok {
+		t.Fatal(fmt.Sprintf("%v, %T", err, err))
+	}
+
+	if httpError.Status() != http.StatusBadRequest {
+		t.Fatalf("status code is bad, got:'%v', want:'%v'", httpError.Status(), http.StatusBadRequest)
+	}
+
+	t.Log(fmt.Sprintf("%v, %T", err, err))
 }
