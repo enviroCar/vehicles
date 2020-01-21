@@ -3,3 +3,6 @@ before_install:
   - docker-compose up -d db
 services:
   - docker
+env:
+ - GO111MODULE=on
+
