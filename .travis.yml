@@ -1,0 +1,5 @@
+language: go
+before_install:
+  - docker-compose up -d db
+services:
+  - docker
