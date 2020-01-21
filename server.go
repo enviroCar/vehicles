@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 	"log"
 	"net/http"
 	"net/url"
@@ -74,6 +76,7 @@ type Context struct {
 	server  *Server
 	Params  map[string]string
 	Request *http.Request
+	logger  *logrus.Entry
 }
 
 // URL returns a URL builder function for the specified handler.
@@ -152,8 +155,19 @@ func (*Server) contentHandler(content interface{}) http.Handler {
 
 func (s *Server) handler(f HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		requestId := r.Header.Get("X-Request-ID")
+		if requestId == "" {
+			requestId = uuid.NewV4().String()
+		}
+
+		logger := logrus.New()
+		ctxlogger := logger.WithFields(logrus.Fields{
+			"request-id": requestId,
+		})
+
 		var handler http.Handler
-		content, err := f(&Context{s, mux.Vars(r), r})
+		content, err := f(&Context{s, mux.Vars(r), r, ctxlogger})
 		if err != nil {
 			handler = s.errorHandler(err)
 		} else if redirect, ok := content.(*Redirect); ok {

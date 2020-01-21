@@ -73,23 +73,35 @@ func (s *Service) GetManufacturers(context *Context) (interface{}, error) {
 
 // GetManufacturer returns the specified manufacturer.
 func (s *Service) GetManufacturer(context *Context) (interface{}, error) {
-	m, err := s.repository.GetManufacturer(context.Params["hsn"])
+
+	hsn := context.Params["hsn"]
+
+	context.logger.Infof("get manufacturer by id: '%s'", hsn)
+
+	m, err := s.repository.GetManufacturer(hsn)
 	if err != nil {
-		return nil, err
-	}
-	href, err := context.URL(s.GetVehicles)("hsn", m.ID)
-	if err != nil {
+		if err != ErrNotFound {
+			context.logger.WithError(err).Error("could not get manufacturer")
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 
+	href, err := context.URL(s.GetVehicles)("hsn", m.ID)
+	if err != nil {
+		context.logger.WithError(err).Error("could not create vehicles links")
+		return nil, ErrInternalServer
+	}
 	m.AddLink(NewLink(href, "vehicles", "application/json", ""))
+
 	link, err := s.manufacturerLink(context, m, "self")
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create manufacturer self link")
+		return nil, ErrInternalServer
 	}
 	m.AddLink(link)
 
-	return m, err
+	return m, nil
 }
 
 // GetVehicles returns all vehicles of the manufacturer.

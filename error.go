@@ -7,6 +7,8 @@ import (
 )
 
 var (
+	// ErrInternalServer is a 500 error
+	ErrInternalServer = NewError(http.StatusInternalServerError, errors.New("internal server error"))
 	// ErrNotFound is a 404 error.
 	ErrNotFound = NewError(http.StatusNotFound, errors.New("not found"))
 	// ErrMethodNotAllowed is a 405 error.
