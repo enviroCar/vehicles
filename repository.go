@@ -32,15 +32,15 @@ func (r *Repository) GetManufacturers() ([]*Manufacturer, error) {
 
 // GetManufacturer returns the specified manufacturer.
 func (r *Repository) GetManufacturer(id string) (*Manufacturer, error) {
-	var manufacturers []*Manufacturer
-	err := r.db.Model(&manufacturers).Where("id = ? ", id).Limit(1).Select()
+	manufacturer := new(Manufacturer)
+	err := r.db.Model(manufacturer).Where("id = ? ", id).First()
 	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
-	if len(manufacturers) == 0 {
-		return nil, ErrNotFound
-	}
-	return manufacturers[0], nil
+	return manufacturer, nil
 }
 
 // GetVehicles returns all vehicles of the manufacturer.

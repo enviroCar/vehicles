@@ -30,12 +30,13 @@ func TestGetVehicle(t *testing.T) {
 	t.Log("get vehicle by id and manufacturer")
 	v, err := r.GetVehicle(m, "156")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if v == nil {
 		t.Fatal("vehicle is nil")
 	}
+	t.Log(v)
 }
 
 func TestGetVehicleNotFound(t *testing.T) {
@@ -54,6 +55,33 @@ func TestGetVehicleNotFound(t *testing.T) {
 	}
 }
 
+func TestGetManufacturer(t *testing.T) {
+
+	r := NewTestRepository(t)
+
+	t.Log("get manufacturer")
+	m, err := r.GetManufacturer("0005")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if m == nil {
+		t.Fatal("manufacturer is nil")
+	}
+	t.Log(m)
+}
+
+func TestGetManufacturerNotFound(t *testing.T) {
+
+	r := NewTestRepository(t)
+
+	t.Log("get manufacturer")
+	_, err := r.GetManufacturer("000x")
+	if err != ErrNotFound {
+		t.Fatal(fmt.Sprintf("%v, %T", err, err))
+	}
+}
+
 func TestGetPowerSourceParserError(t *testing.T) {
 
 	r := NewTestRepository(t)
@@ -61,7 +89,7 @@ func TestGetPowerSourceParserError(t *testing.T) {
 	t.Log("get power source by id")
 	_, err := r.GetPowerSource("1x")
 	if err == nil {
-		t.Error("error is nil")
+		t.Fatal("error is nil")
 	}
 
 	httpError, ok := err.(Error)
@@ -69,8 +97,8 @@ func TestGetPowerSourceParserError(t *testing.T) {
 		t.Fatal(fmt.Sprintf("%v, %T", err, err))
 	}
 
-	if httpError.Status() != http.StatusBadRequest {
-		t.Fatalf("status code is bad, got:'%v', want:'%v'", httpError.Status(), http.StatusBadRequest)
+	if httpError.Status() != http.StatusNotFound {
+		t.Fatalf("status code is bad, got:'%v', want:'%v'", httpError.Status(), http.StatusNotFound)
 	}
 
 	t.Log(fmt.Sprintf("%v, %T", err, err))
