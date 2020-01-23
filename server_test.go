@@ -9,28 +9,37 @@ import (
 	"github.com/go-pg/pg/v9"
 )
 
-func TestServer(t *testing.T) {
-
+func BuildTestServer(t *testing.T) (*Server, func() error, func() error) {
+	t.Log("init new repository")
 	repository := NewRepository(&pg.Options{
 		User:     getenv("DB_USER", "postgres"),
 		Password: getenv("DB_PASS", "postgres"),
 		Database: getenv("DB_NAME", "vehicles"),
 		Addr:     getenv("DB_ADDR", "localhost:5432"),
 	})
-	defer repository.Close()
 
-	s := NewService(repository)
-	defer s.Close()
+	t.Log("init new service")
+	service := NewService(repository)
 
+	t.Log("init new server and add routes")
 	server := NewServer()
 
-	server.Get("/", s.GetRoot)
-	server.Get("/manufacturers", s.GetManufacturers)
-	server.Get("/manufacturers/{hsn}", s.GetManufacturer)
-	server.Get("/manufacturers/{hsn}/vehicles", s.GetVehicles)
-	server.Get("/manufacturers/{hsn}/vehicles/{tsn}", s.GetVehicle)
-	server.Get("/powerSources", s.GetPowerSources)
-	server.Get("/powerSources/{id}", s.GetPowerSource)
+	server.Get("/", service.GetRoot)
+	server.Get("/manufacturers", service.GetManufacturers)
+	server.Get("/manufacturers/{hsn}", service.GetManufacturer)
+	server.Get("/manufacturers/{hsn}/vehicles", service.GetVehicles)
+	server.Get("/manufacturers/{hsn}/vehicles/{tsn}", service.GetVehicle)
+	server.Get("/powerSources", service.GetPowerSources)
+	server.Get("/powerSources/{id}", service.GetPowerSource)
+
+	return server, repository.Close, service.Close
+}
+
+func TestServerRoot(t *testing.T) {
+
+	server, repositoryClose, serviceClose := BuildTestServer(t)
+	defer repositoryClose()
+	defer serviceClose()
 
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
@@ -52,16 +61,55 @@ func TestServer(t *testing.T) {
 
 	server.ServeHTTP(rr, req)
 
-	// Check the status code is what we expect.
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	AssertOkStatusCode(t, rr.Code)
+
+	want := `{"links":[{"href":"https://processing.envirocar.org/vehicles/manufacturers","type":"application/json","title":"Manufacturers","rel":"manufacturers"},{"href":"https://processing.envirocar.org/vehicles/powerSources","type":"application/json","title":"Power Sources","rel":"powerSources"}]}`
+	AssertResponseBody(t, rr.Body.String(), want)
+
+	t.Logf("response body: %v", rr.Body.String())
+}
+
+func TestServerGetManufacturerById(t *testing.T) {
+
+	server, repositoryClose, serviceClose := BuildTestServer(t)
+	defer repositoryClose()
+	defer serviceClose()
+
+	req, err := http.NewRequest("GET", "/manufacturers/0005", nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 
+	req.Host = "localhost"
+	req.Host = "processing.envirocar.org"
+	req.Header.Add("Host", "processing.envirocar.org")
+	req.Header.Add("accept", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	t.Log("get manufacturer by id")
+	server.ServeHTTP(rr, req)
+
+	AssertOkStatusCode(t, rr.Code)
+
+	want := `{"links":[{"href":"http://processing.envirocar.org/manufacturers/0005/vehicles","type":"application/json","rel":"vehicles"},{"href":"http://processing.envirocar.org/manufacturers/0005","type":"application/json","title":"BMW","rel":"self"}],"hsn":"0005","name":"BMW"}`
+	AssertResponseBody(t, rr.Body.String(), want)
+
+	t.Logf("response body: %v", rr.Body.String())
+}
+
+func AssertOkStatusCode(t *testing.T, code int) {
+	// Check the status code is what we expect.
+	if code != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			code, http.StatusOK)
+	}
+}
+
+func AssertResponseBody(t *testing.T, got, want string) {
 	// Check the response body is what we expect.
-	expected := `{"links":[{"href":"https://processing.envirocar.org/vehicles/manufacturers","type":"application/json","title":"Manufacturers","rel":"manufacturers"},{"href":"https://processing.envirocar.org/vehicles/powerSources","type":"application/json","title":"Power Sources","rel":"powerSources"}]}`
-	if strings.TrimSpace(rr.Body.String()) != expected {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected)
+	if strings.TrimSpace(got) != want {
+		t.Fatalf("handler returned unexpected body: got %v want %v",
+			got, want)
 	}
 }
