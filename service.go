@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"net/http"
 	"strconv"
 )
 
@@ -178,5 +179,19 @@ func (s *Service) GetPowerSources(context *Context) (interface{}, error) {
 
 // GetPowerSource gets the specified power source.
 func (s *Service) GetPowerSource(context *Context) (interface{}, error) {
-	return s.repository.GetPowerSource(context.Params["id"])
+
+	id := context.Params["id"]
+
+	context.logger.Infof("get power source by id: '%s'", id)
+
+	p, err := s.repository.GetPowerSource(id)
+	if err != nil {
+		if httpErr := err.(Error); httpErr.Status() != http.StatusNotFound {
+			context.logger.WithError(err).Error("could not get power source")
+			return nil, ErrInternalServer
+		}
+		return nil, err
+	}
+
+	return p, nil
 }
