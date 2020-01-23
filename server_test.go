@@ -59,6 +59,7 @@ func TestServerRoot(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 
+	t.Log("get root")
 	server.ServeHTTP(rr, req)
 
 	AssertOkStatusCode(t, rr.Code)
@@ -93,6 +94,35 @@ func TestServerGetManufacturerById(t *testing.T) {
 	AssertOkStatusCode(t, rr.Code)
 
 	want := `{"links":[{"href":"http://processing.envirocar.org/manufacturers/0005/vehicles","type":"application/json","rel":"vehicles"},{"href":"http://processing.envirocar.org/manufacturers/0005","type":"application/json","title":"BMW","rel":"self"}],"hsn":"0005","name":"BMW"}`
+	AssertResponseBody(t, rr.Body.String(), want)
+
+	t.Logf("response body: %v", rr.Body.String())
+}
+
+func TestServerGetPowerSourceById(t *testing.T) {
+
+	server, repositoryClose, serviceClose := BuildTestServer(t)
+	defer repositoryClose()
+	defer serviceClose()
+
+	req, err := http.NewRequest("GET", "/powerSources/14", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Host = "localhost"
+	req.Host = "processing.envirocar.org"
+	req.Header.Add("Host", "processing.envirocar.org")
+	req.Header.Add("accept", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	t.Log("get power source by id")
+	server.ServeHTTP(rr, req)
+
+	AssertOkStatusCode(t, rr.Code)
+
+	want := `{"id":14,"name":"Wasserst./Benzin/E","description":"Bivalenter Betrieb mit Wasserstoff oder Benzin kombiniert mit Elektromotor"}`
 	AssertResponseBody(t, rr.Body.String(), want)
 
 	t.Logf("response body: %v", rr.Body.String())
