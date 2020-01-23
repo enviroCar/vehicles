@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/go-pg/pg/v9"
-	"github.com/go-pg/pg/v9/orm"
 )
 
 // Repository is the vehicle repository.
@@ -86,14 +85,15 @@ func (r *Repository) GetPowerSource(id string) (*PowerSource, error) {
 		return nil, NewErrNotFoundF("id is bad '%v'", id)
 	}
 
-	var powerSources []*PowerSource
-	var q *orm.Query = r.db.Model(&powerSources)
-	err = q.Where("id = ? ", nid).Limit(1).Select()
+	powerSource := new(PowerSource)
+	err = r.db.Model(powerSource).
+		Where("id = ? ", nid).
+		First()
 	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
-	if len(powerSources) == 0 {
-		return nil, ErrNotFound
-	}
-	return powerSources[0], nil
+	return powerSource, nil
 }

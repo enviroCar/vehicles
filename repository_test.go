@@ -103,3 +103,30 @@ func TestGetPowerSourceParserError(t *testing.T) {
 
 	t.Log(fmt.Sprintf("%v, %T", err, err))
 }
+
+func TestGetPowerSource(t *testing.T) {
+
+	r := NewTestRepository(t)
+
+	t.Log("get power source")
+	p, err := r.GetPowerSource("14")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if p == nil {
+		t.Fatal("power source is nil")
+	}
+	t.Log(p)
+}
+
+func TestGetPowerSourceNotFound(t *testing.T) {
+
+	r := NewTestRepository(t)
+
+	t.Log("get power source")
+	_, err := r.GetPowerSource("99999")
+	if err != ErrNotFound {
+		t.Fatal(fmt.Sprintf("%v, %T", err, err))
+	}
+}
