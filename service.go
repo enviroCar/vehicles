@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"net/http"
 	"strconv"
 )
 
@@ -24,16 +23,20 @@ func (s *Service) Close() error {
 // GetRoot returns the root content.
 func (s *Service) GetRoot(context *Context) (interface{}, error) {
 
+	context.logger.Info("get root")
+
 	links := &Linked{}
 	href, err := context.URL(s.GetManufacturers)()
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create manufacturer links")
+		return nil, ErrInternalServer
 	}
 	links.AddLink(NewLink(href, "manufacturers", "application/json", "Manufacturers"))
 
 	href, err = context.URL(s.GetPowerSources)()
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create power source links")
+		return nil, ErrInternalServer
 	}
 	links.AddLink(NewLink(href, "powerSources", "application/json", "Power Sources"))
 	return links, nil
@@ -56,15 +59,23 @@ func (s *Service) vehicleLink(context *Context, vehicle *Vehicle, relation strin
 
 // GetManufacturers returns all manufacturers.
 func (s *Service) GetManufacturers(context *Context) (interface{}, error) {
+
+	context.logger.Info("get manufacturers")
+
 	entities, err := s.repository.GetManufacturers()
 	if err != nil {
+		if context.server.IsCriticalError(err)  {
+			context.logger.WithError(err).Error("could not get manufacturers")
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 
 	for _, m := range entities {
 		link, err := s.manufacturerLink(context, m, "canonical")
 		if err != nil {
-			return nil, err
+			context.logger.WithError(err).Error("could not create manufacturer link")
+			return nil, ErrInternalServer
 		}
 		m.AddLink(link)
 	}
@@ -81,7 +92,7 @@ func (s *Service) GetManufacturer(context *Context) (interface{}, error) {
 
 	m, err := s.repository.GetManufacturer(hsn)
 	if err != nil {
-		if err != ErrNotFound {
+		if context.server.IsCriticalError(err)  {
 			context.logger.WithError(err).Error("could not get manufacturer")
 			return nil, ErrInternalServer
 		}
@@ -107,20 +118,34 @@ func (s *Service) GetManufacturer(context *Context) (interface{}, error) {
 
 // GetVehicles returns all vehicles of the manufacturer.
 func (s *Service) GetVehicles(context *Context) (interface{}, error) {
-	m, err := s.repository.GetManufacturer(context.Params["hsn"])
+
+	context.logger.Infof("get vehicles")
+
+	hsn := context.Params["hsn"]
+
+	m, err := s.repository.GetManufacturer(hsn)
 	if err != nil {
+		if context.server.IsCriticalError(err) {
+			context.logger.WithError(err).Errorf("could not get manufacturer by id: '%s'", hsn)
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 
 	vehicles, err := s.repository.GetVehicles(m)
 	if err != nil {
+		if context.server.IsCriticalError(err) {
+			context.logger.WithError(err).Errorf("could not get vehicles by manufacturer: %v", m)
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 
 	for _, vehicle := range vehicles {
 		link, err := s.vehicleLink(context, vehicle, "canonical")
 		if err != nil {
-			return nil, err
+			context.logger.WithError(err).Error("could not create vehicle link")
+			return nil, ErrInternalServer
 		}
 		vehicle.AddLink(link)
 	}
@@ -129,30 +154,49 @@ func (s *Service) GetVehicles(context *Context) (interface{}, error) {
 
 // GetVehicle tries to get the specified vehicle.
 func (s *Service) GetVehicle(context *Context) (interface{}, error) {
-	m, err := s.repository.GetManufacturer(context.Params["hsn"])
+
+	context.logger.Infof("get vehicle by id and manufacturer")
+
+	hsn := context.Params["hsn"]
+
+	m, err := s.repository.GetManufacturer(hsn)
 	if err != nil {
+		if context.server.IsCriticalError(err) {
+			context.logger.WithError(err).Errorf("could not get manufacturer by id: '%s'", hsn)
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
-	v, err := s.repository.GetVehicle(m, context.Params["tsn"])
+
+	tsn := context.Params["tsn"]
+
+	v, err := s.repository.GetVehicle(m, tsn)
 	if err != nil {
+		if context.server.IsCriticalError(err) {
+			context.logger.WithError(err).Errorf("could not get vehicle by id: '%s'", tsn)
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 
 	link, err := s.vehicleLink(context, v, "self")
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create vehicle link self")
+		return nil, ErrInternalServer
 	}
 	v.AddLink(link)
 
 	link, err = s.powerSourceLink(context, v.PowerSource, "powerSource")
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create power source link")
+		return nil, ErrInternalServer
 	}
 	v.AddLink(link)
 
 	link, err = s.manufacturerLink(context, v.Manufacturer, "manufacturer")
 	if err != nil {
-		return nil, err
+		context.logger.WithError(err).Error("could not create manufacturer link")
+		return nil, ErrInternalServer
 	}
 	v.AddLink(link)
 
@@ -161,14 +205,22 @@ func (s *Service) GetVehicle(context *Context) (interface{}, error) {
 
 // GetPowerSources gets all available power sources.
 func (s *Service) GetPowerSources(context *Context) (interface{}, error) {
+
+	context.logger.Infof("get power sources")
+
 	entities, err := s.repository.GetPowerSources()
 	if err != nil {
+		if context.server.IsCriticalError(err) {
+			context.logger.WithError(err).Error("could not get power sources")
+			return nil, ErrInternalServer
+		}
 		return nil, err
 	}
 	for _, m := range entities {
 		link, err := s.powerSourceLink(context, m, "canonical")
 		if err != nil {
-			return nil, err
+			context.logger.WithError(err).Error("could not create power source link")
+			return nil, ErrInternalServer
 		}
 		m.AddLink(link)
 	}
@@ -186,7 +238,7 @@ func (s *Service) GetPowerSource(context *Context) (interface{}, error) {
 
 	p, err := s.repository.GetPowerSource(id)
 	if err != nil {
-		if httpErr := err.(Error); httpErr.Status() != http.StatusNotFound {
+		if context.server.IsCriticalError(err) {
 			context.logger.WithError(err).Error("could not get power source")
 			return nil, ErrInternalServer
 		}

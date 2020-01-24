@@ -141,6 +141,13 @@ func (*Server) errorHandler(ctxlogger *logrus.Entry, err error) http.Handler {
 	})
 }
 
+func (*Server) IsCriticalError(err error) bool {
+	if httpErr := err.(Error); httpErr.Status() != http.StatusNotFound {
+		return true
+	}
+	return false
+}
+
 func (*Server) redirectHandler(redirect *Redirect) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Location", redirect.Location.String())

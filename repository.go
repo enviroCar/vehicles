@@ -26,6 +26,12 @@ func (r *Repository) Close() error {
 func (r *Repository) GetManufacturers() ([]*Manufacturer, error) {
 	var entities []*Manufacturer
 	err := r.db.Model(&entities).Select()
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
 	return entities, err
 }
 
@@ -49,7 +55,13 @@ func (r *Repository) GetVehicles(manufacturer *Manufacturer) ([]*Vehicle, error)
 		Column("id", "trade_name", "commercial_name", "allotment_date", "manufacturer_id").
 		Where("manufacturer_id = ?", manufacturer.ID).
 		Select()
-	return vehicles, err
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return vehicles, nil
 }
 
 // GetVehicle tries to get the specified vehicle.
@@ -75,7 +87,13 @@ func (r *Repository) GetVehicle(manufacturer *Manufacturer, id string) (*Vehicle
 func (r *Repository) GetPowerSources() ([]*PowerSource, error) {
 	var entities []*PowerSource
 	err := r.db.Model(&entities).Select()
-	return entities, err
+	if err != nil {
+		if err == pg.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return entities, nil
 }
 
 // GetPowerSource gets the specified power source.
