@@ -33,8 +33,8 @@ func NewServer() *Server {
 	}
 	s.router.Use(s.loggingMiddleware())
 	s.router.Use(mux.CORSMethodMiddleware(s.router))
-	s.router.MethodNotAllowedHandler = s.errorHandler(ErrMethodNotAllowed)
-	s.router.NotFoundHandler = s.errorHandler(ErrNotFound)
+	s.router.MethodNotAllowedHandler = s.errorHandler(nil, ErrMethodNotAllowed)
+	s.router.NotFoundHandler = s.errorHandler(nil, ErrNotFound)
 	return s
 }
 
@@ -113,7 +113,12 @@ func (c *Context) URL(handler HandlerFunc) func(...string) (*url.URL, error) {
 	}
 }
 
-func (*Server) errorHandler(err error) http.Handler {
+func (*Server) errorHandler(ctxlogger *logrus.Entry, err error) http.Handler {
+
+	if ctxlogger == nil {
+		ctxlogger = logrus.NewEntry(logrus.StandardLogger())
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		status := http.StatusInternalServerError
 		if e, ok := err.(Error); ok {
@@ -130,8 +135,17 @@ func (*Server) errorHandler(err error) http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		json.NewEncoder(w).Encode(content)
+		if err := json.NewEncoder(w).Encode(content); err != nil {
+			ctxlogger.WithError(err).Error("could not encode error response")
+		}
 	})
+}
+
+func (*Server) IsCriticalError(err error) bool {
+	if httpErr := err.(Error); httpErr.Status() != http.StatusNotFound {
+		return true
+	}
+	return false
 }
 
 func (*Server) redirectHandler(redirect *Redirect) http.Handler {
@@ -141,14 +155,16 @@ func (*Server) redirectHandler(redirect *Redirect) http.Handler {
 	})
 }
 
-func (*Server) contentHandler(content interface{}) http.Handler {
+func (*Server) contentHandler(ctxlogger *logrus.Entry, content interface{}) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if content == nil {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(content)
+			if err := json.NewEncoder(w).Encode(content); err != nil {
+				ctxlogger.WithError(err).Error("could not encode content response")
+			}
 		}
 	})
 }
@@ -169,13 +185,12 @@ func (s *Server) handler(f HandlerFunc) http.HandlerFunc {
 		var handler http.Handler
 		content, err := f(&Context{s, mux.Vars(r), r, ctxlogger})
 		if err != nil {
-			handler = s.errorHandler(err)
+			handler = s.errorHandler(ctxlogger, err)
 		} else if redirect, ok := content.(*Redirect); ok {
 			handler = s.redirectHandler(redirect)
 		} else {
-			handler = s.contentHandler(content)
+			handler = s.contentHandler(ctxlogger, content)
 		}
 		handler.ServeHTTP(w, r)
 	}
-
 }
